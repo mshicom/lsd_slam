@@ -1046,6 +1046,109 @@ void SlamSystem::trackFrame(uchar* image, unsigned int frameID, bool blockUntilM
 	}
 }
 
+
+void SlamSystem::importFrame(uchar* image, const SE3& wGc, unsigned int frameID, bool blockUntilMapped, double timestamp)
+{
+    // 1. Create new frame
+    std::shared_ptr<Frame> trackingNewFrame(new Frame(frameID, width, height, K, timestamp, image));
+
+    // 2b. normal tracking
+
+    currentKeyFrameMutex.lock();
+    bool my_createNewKeyframe = createNewKeyFrame;	// pre-save here, to make decision afterwards.
+
+    if(  trackingReference->keyframe != this->currentKeyFrame.get()  // if trackingReference
+      || currentKeyFrame->depthHasBeenUpdatedFlag)
+    {
+        // update trackingReference
+        trackingReference->importFrame(currentKeyFrame.get());
+        currentKeyFrame->depthHasBeenUpdatedFlag = false;
+        trackingReferenceFrameSharedPT = currentKeyFrame;
+    }
+
+    FramePoseStruct* trackingReferencePose = trackingReference->keyframe->pose;
+    currentKeyFrameMutex.unlock();
+
+    // DO TRACKING & Show tracking result.
+    if(enablePrintDebugInfo && printThreadingInfo)
+        printf("Imported %d on %d\n", trackingNewFrame->id(), trackingReferencePose->frameID);
+
+    Sim3 frameToReference = trackingReferencePose->getCamToWorld().inverse() * sim3FromSE3(wGc,1);
+    trackingNewFrame->pose->thisToParent_raw = frameToReference;
+    trackingNewFrame->pose->trackingParent = trackingReference->keyframe->pose;
+    trackingReference->keyframe->numFramesTrackedOnThis++;
+
+
+//	struct timeval tv_start, tv_end;
+//	gettimeofday(&tv_start, NULL);
+
+//	SE3 newRefToFrame_poseUpdate = tracker->trackFrame(
+//			trackingReference,
+//			trackingNewFrame.get(),
+//			frameToReference_initialEstimate);
+
+
+//	gettimeofday(&tv_end, NULL);
+//	msTrackFrame = 0.9*msTrackFrame + 0.1*((tv_end.tv_sec-tv_start.tv_sec)*1000.0f + (tv_end.tv_usec-tv_start.tv_usec)/1000.0f);
+    nTrackFrame++;
+
+
+    keyFrameGraph->addFrame(trackingNewFrame.get());
+
+
+    //Sim3 lastTrackedCamToWorld = mostCurrentTrackedFrame->getScaledCamToWorld();//  mostCurrentTrackedFrame->TrackingParent->getScaledCamToWorld() * sim3FromSE3(mostCurrentTrackedFrame->thisToParent_SE3TrackingResult, 1.0);
+    if (outputWrapper != 0)
+    {
+        outputWrapper->publishTrackedFrame(trackingNewFrame.get());
+    }
+
+
+    // Keyframe selection
+    latestTrackedFrame = trackingNewFrame;
+    if (!my_createNewKeyframe && currentKeyFrame->numMappedOnThisTotal > MIN_NUM_MAPPED)
+    {
+        Sophus::Vector3d dist = frameToReference.translation() * currentKeyFrame->meanIdepth;
+        float minVal = fmin(0.2f + keyFrameGraph->keyframesAll.size() * 0.8f / INITIALIZATION_PHASE_COUNT,1.0f);
+
+        if(keyFrameGraph->keyframesAll.size() < INITIALIZATION_PHASE_COUNT)	minVal *= 0.7;
+
+        lastTrackingClosenessScore = trackableKeyFrameSearch->getRefFrameScore(dist.dot(dist), tracker->pointUsage);
+
+        if (lastTrackingClosenessScore > minVal)
+        {
+            createNewKeyFrame = true;
+
+            if(enablePrintDebugInfo && printKeyframeSelectionInfo)
+                printf("SELECT %d on %d! dist %.3f + usage %.3f = %.3f > 1\n",trackingNewFrame->id(),trackingNewFrame->getTrackingParent()->id(), dist.dot(dist), tracker->pointUsage, trackableKeyFrameSearch->getRefFrameScore(dist.dot(dist), tracker->pointUsage));
+        }
+        else
+        {
+            if(enablePrintDebugInfo && printKeyframeSelectionInfo)
+                printf("SKIPPD %d on %d! dist %.3f + usage %.3f = %.3f > 1\n",trackingNewFrame->id(),trackingNewFrame->getTrackingParent()->id(), dist.dot(dist), tracker->pointUsage, trackableKeyFrameSearch->getRefFrameScore(dist.dot(dist), tracker->pointUsage));
+
+        }
+    }
+
+
+    unmappedTrackedFramesMutex.lock();
+    if(unmappedTrackedFrames.size() < 50 || (unmappedTrackedFrames.size() < 100 && trackingNewFrame->getTrackingParent()->numMappedOnThisTotal < 10))
+        unmappedTrackedFrames.push_back(trackingNewFrame);
+    unmappedTrackedFramesSignal.notify_one();
+    unmappedTrackedFramesMutex.unlock();
+
+    // implement blocking
+    if(blockUntilMapped && trackingIsGood)
+    {
+        boost::unique_lock<boost::mutex> lock(newFrameMappedMutex);
+        while(unmappedTrackedFrames.size() > 0)
+        {
+            //printf("TRACKING IS BLOCKING, waiting for %d frames to finish mapping.\n", (int)unmappedTrackedFrames.size());
+            newFrameMappedSignal.wait(lock);
+        }
+        lock.unlock();
+    }
+}
+
 float SlamSystem::tryTrackSim3(
 		TrackingReference* A, TrackingReference* B,
 		int lvlStart, int lvlEnd,
