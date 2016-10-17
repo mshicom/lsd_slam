@@ -443,8 +443,11 @@ void SlamSystem::discardCurrentKeyframe()
 	keyFrameGraph->allFramePosesMutex.lock();
 	for(FramePoseStruct* p : keyFrameGraph->allFramePoses)
 	{
-		if(p->trackingParent != 0 && p->trackingParent->frameID == currentKeyFrame->id())
-			p->trackingParent = 0;
+        if(p->trackingParent == nullptr)
+            continue;
+
+        if(p->trackingParent->frameID == currentKeyFrame->id())
+            p->trackingParent = nullptr;
 	}
 	keyFrameGraph->allFramePosesMutex.unlock();
 
@@ -506,7 +509,7 @@ void SlamSystem::loadNewCurrentKeyframe(Frame* keyframeToLoad)
 
 void SlamSystem::changeKeyframe(bool noCreate, bool force, float maxScore)
 {
-	Frame* newReferenceKF=0;
+    Frame* newReferenceKF=nullptr;
 	std::shared_ptr<Frame> newKeyframeCandidate = latestTrackedFrame;
 	if(doKFReActivation && SLAMEnabled)
 	{
@@ -518,7 +521,7 @@ void SlamSystem::changeKeyframe(bool noCreate, bool force, float maxScore)
 		nFindReferences++;
 	}
 
-	if(newReferenceKF != 0)
+    if(newReferenceKF != nullptr)
 		loadNewCurrentKeyframe(newReferenceKF);
 	else
 	{
@@ -658,7 +661,7 @@ void SlamSystem::debugDisplayDepthMap()
 
 	map->debugPlotDepthMap();
 	double scale = 1;
-	if(currentKeyFrame != 0 && currentKeyFrame != 0)
+    if(currentKeyFrame != nullptr)
 		scale = currentKeyFrame->getScaledCamToWorld().scale();
 	// debug plot depthmap
 	char buf1[200];
@@ -736,12 +739,14 @@ void SlamSystem::takeRelocalizeResult()
 	}
 }
 
+// return: did something?
 bool SlamSystem::doMappingIteration()
 {
-	if(currentKeyFrame == 0)
+    if(currentKeyFrame == nullptr)
 		return false;
 
-	if(!doMapping && currentKeyFrame->idxInKeyframes < 0)
+    if(!doMapping
+        && currentKeyFrame->idxInKeyframes < 0)     // currentKeyFrame not in keyFrameGraph
 	{
 		if(currentKeyFrame->numMappedOnThisTotal >= MIN_NUM_MAPPED)
 			finishCurrentKeyframe();
@@ -763,7 +768,6 @@ bool SlamSystem::doMappingIteration()
 		dumpMap = false;
 	}
 
-
 	// set mappingFrame
 	if(trackingIsGood)
 	{
@@ -779,12 +783,10 @@ bool SlamSystem::doMappingIteration()
 			return false;
 		}
 
-
 		if (createNewKeyFrame)
 		{
 			finishCurrentKeyframe();
 			changeKeyframe(false, true, 1.0f);
-
 
 			if (displayDepthMap || depthMapScreenshotFlag)
 				debugDisplayDepthMap();
@@ -801,9 +803,9 @@ bool SlamSystem::doMappingIteration()
 
 		return true;
 	}
-	else
+    else // tacking is not good
 	{
-		// invalidate map if it was valid.
+        // invalidate the map
 		if(map->isValid())
 		{
 			if(currentKeyFrame->numMappedOnThisTotal >= MIN_NUM_MAPPED)
@@ -821,7 +823,6 @@ bool SlamSystem::doMappingIteration()
 		// did we find a frame to relocalize with?
 		if(relocalizer.waitResult(50))
 			takeRelocalizeResult();
-
 
 		return true;
 	}
@@ -889,9 +890,10 @@ void SlamSystem::randomInit(uchar* image, double timeStamp, int id)
 
 void SlamSystem::trackFrame(uchar* image, unsigned int frameID, bool blockUntilMapped, double timestamp)
 {
-	// Create new frame
+    // 1. Create new frame
 	std::shared_ptr<Frame> trackingNewFrame(new Frame(frameID, width, height, K, timestamp, image));
 
+    // 2. failure recovering
 	if(!trackingIsGood)
 	{
 		relocalizer.updateCurrentFrame(trackingNewFrame);
@@ -902,10 +904,15 @@ void SlamSystem::trackFrame(uchar* image, unsigned int frameID, bool blockUntilM
 		return;
 	}
 
+    // 2b. normal tracking
+
 	currentKeyFrameMutex.lock();
 	bool my_createNewKeyframe = createNewKeyFrame;	// pre-save here, to make decision afterwards.
-	if(trackingReference->keyframe != currentKeyFrame.get() || currentKeyFrame->depthHasBeenUpdatedFlag)
-	{
+
+    if(  trackingReference->keyframe != this->currentKeyFrame.get()  // if trackingReference
+      || currentKeyFrame->depthHasBeenUpdatedFlag)
+    {
+        // update trackingReference
 		trackingReference->importFrame(currentKeyFrame.get());
 		currentKeyFrame->depthHasBeenUpdatedFlag = false;
 		trackingReferenceFrameSharedPT = currentKeyFrame;
@@ -1038,7 +1045,6 @@ void SlamSystem::trackFrame(uchar* image, unsigned int frameID, bool blockUntilM
 		lock.unlock();
 	}
 }
-
 
 float SlamSystem::tryTrackSim3(
 		TrackingReference* A, TrackingReference* B,

@@ -909,7 +909,7 @@ float SE3Tracker::calcResidualAndBuffers(
 	Eigen::Matrix3f rotMat = referenceToFrame.rotationMatrix();
 	Eigen::Vector3f transVec = referenceToFrame.translation();
 	
-	const Eigen::Vector3f* refPoint_max = refPoint + refNum;
+    const Eigen::Vector3f* refPoint_max = refPoint + refNum;    // pointer to last pixel
 
 
 	const Eigen::Vector4f* frame_gradients = frame->gradients(level);
@@ -918,7 +918,7 @@ float SE3Tracker::calcResidualAndBuffers(
 
 	float sumResUnweighted = 0;
 
-	bool* isGoodOutBuffer = idxBuf != 0 ? frame->refPixelWasGood() : 0;
+    bool* isGoodOutBuffer = (idxBuf != 0)? frame->refPixelWasGood() : 0;
 
 	int goodCount = 0;
 	int badCount = 0;
@@ -931,8 +931,8 @@ float SE3Tracker::calcResidualAndBuffers(
 
 	float usageCount = 0;
 
-	for(;refPoint<refPoint_max; refPoint++, refColVar++, idxBuf++)
-	{
+    for(;refPoint<refPoint_max; refPoint++, refColVar++, idxBuf++)
+    {
 
 		Eigen::Vector3f Wxp = rotMat * (*refPoint) + transVec;
 		float u_new = (Wxp[0]/Wxp[2])*fx_l + cx_l;

@@ -43,7 +43,7 @@ DepthMap::DepthMap(int w, int h, const Eigen::Matrix3f& K)
 	width = w;
 	height = h;
 
-	activeKeyFrame = 0;
+    activeKeyFrame = nullptr;
 	activeKeyFrameIsReactivated = false;
 	otherDepthMap = new DepthMapPixelHypothesis[width*height];
 	currentDepthMap = new DepthMapPixelHypothesis[width*height];
@@ -84,7 +84,7 @@ DepthMap::DepthMap(int w, int h, const Eigen::Matrix3f& K)
 
 DepthMap::~DepthMap()
 {
-	if(activeKeyFrame != 0)
+    if(activeKeyFrame != nullptr)
 		activeKeyFramelock.unlock();
 
 	debugImageHypothesisHandling.release();
@@ -134,7 +134,7 @@ void DepthMap::observeDepthRow(int yMin, int yMax, RunningStats* stats)
 
 			bool success;
 			if(!hasHypothesis)
-				success = observeDepthCreate(x, y, idx, stats);
+                success = observeDepthCreate(x, y, idx, stats); // param: currentDepthMap
 			else
 				success = observeDepthUpdate(x, y, idx, keyFrameMaxGradBuf, stats);
 
@@ -188,6 +188,8 @@ bool DepthMap::makeAndCheckEPL(const int x, const int y, const Frame* const ref,
 	// ======= make epl ========
 	// calculate the plane spanned by the two camera centers and the point (x,y,1)
 	// intersect it with the keyframe's image plane (at depth=1)
+    // hint 1: This line used at the "other frame" to search for correspondent
+    // hint 2: thisToOther_t = Refence camera's position coordinates in Other camera, project it to the Other image plane, then we get this line
 	float epx = - fx * ref->thisToOther_t[0] + ref->thisToOther_t[2]*(x - cx);
 	float epy = - fy * ref->thisToOther_t[1] + ref->thisToOther_t[2]*(y - cy);
 
@@ -1214,9 +1216,12 @@ void DepthMap::updateKeyframe(std::deque< std::shared_ptr<Frame> > referenceFram
 
 void DepthMap::invalidate()
 {
-	if(activeKeyFrame==0) return;
-	activeKeyFrame=0;
-	activeKeyFramelock.unlock();
+    if(activeKeyFrame==nullptr)
+        return;
+    else {
+        activeKeyFrame=nullptr;
+        activeKeyFramelock.unlock();
+    }
 }
 
 void DepthMap::createKeyFrame(Frame* new_keyframe)
@@ -1399,7 +1404,8 @@ void DepthMap::finalizeKeyFrame()
 
 int DepthMap::debugPlotDepthMap()
 {
-	if(activeKeyFrame == 0) return 1;
+    if(activeKeyFrame == nullptr)
+        return 1;
 
 	cv::Mat keyFrameImage(activeKeyFrame->height(), activeKeyFrame->width(), CV_32F, const_cast<float*>(activeKeyFrameImageData));
 	keyFrameImage.convertTo(debugImageDepth, CV_8UC1);
@@ -1453,6 +1459,8 @@ inline float DepthMap::doLineStereo(
 	Eigen::Vector3f pInf = referenceFrame->K_otherToThis_R * KinvP;
 	Eigen::Vector3f pReal = pInf / prior_idepth + referenceFrame->K_otherToThis_t;
 
+    // Caution: if R goes behind C (i.e.Tz<0), then the epipole projection is flipped,
+    //          therefore have to multiply the sign of Tz
 	float rescaleFactor = pReal[2] * prior_idepth;
 
 	float firstX = u - 2*epxn*rescaleFactor;
@@ -1679,7 +1687,7 @@ inline float DepthMap::doLineStereo(
 		if(loopCounter%2==0)
 		{
 			// calc error and accumulate sums.
-			e1A = val_cp_p2 - realVal_p2;ee += e1A*e1A;
+            e1A = val_cp_p2 - realVal_p2;ee += e1A*e1A;     // referenceFrameImage - activeKeyFrameImageData
 			e2A = val_cp_p1 - realVal_p1;ee += e2A*e2A;
 			e3A = val_cp - realVal;      ee += e3A*e3A;
 			e4A = val_cp_m1 - realVal_m1;ee += e4A*e4A;

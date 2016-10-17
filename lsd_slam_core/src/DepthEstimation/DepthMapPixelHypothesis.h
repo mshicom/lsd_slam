@@ -60,7 +60,7 @@ public:
 	float idepth_var_smoothed;
 
 
-	inline DepthMapPixelHypothesis() : isValid(false), blacklisted(0) {};
+    inline DepthMapPixelHypothesis() : isValid(false), blacklisted(0) {}
 
 	inline DepthMapPixelHypothesis(
 			const float &my_idepth,
@@ -88,7 +88,7 @@ public:
 			idepth(my_idepth),
 			idepth_var(my_idepth_var),
 			idepth_smoothed(-1),
-			idepth_var_smoothed(-1) {};
+            idepth_var_smoothed(-1) {}
 
 	cv::Vec3b getVisualizationColor(int lastFrameID) const;
 };

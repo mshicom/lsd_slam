@@ -68,7 +68,7 @@ public:
 	void finalizeKeyFrame();
 
 	void invalidate();
-	inline bool isValid() {return activeKeyFrame!=0;};
+    inline bool isValid() {return activeKeyFrame!=nullptr;}
 
 	int debugPlotDepthMap();
 
