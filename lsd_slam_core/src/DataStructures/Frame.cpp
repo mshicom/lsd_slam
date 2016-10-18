@@ -75,7 +75,7 @@ Frame::~Frame()
 
 	FrameMemory::getInstance().deactivateFrame(this);
 
-	if(!pose->isRegisteredToGraph)
+    if(pose->isRegisteredToGraph == false)
 		delete pose;
 	else
 		pose->frame = 0;

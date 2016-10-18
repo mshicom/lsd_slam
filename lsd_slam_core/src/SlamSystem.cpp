@@ -101,7 +101,7 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K, bool enableSLAM)
 	}
 
 
-	outputWrapper = 0;
+    outputWrapper = nullptr;
 
 	keepRunning = true;
 	doFinalOptimization = false;
@@ -421,7 +421,7 @@ void SlamSystem::finishCurrentKeyframe()
 		}
 	}
 
-	if(outputWrapper!= 0)
+    if(outputWrapper != nullptr)
 		outputWrapper->publishKeyframe(currentKeyFrame.get());
 }
 
@@ -484,7 +484,8 @@ void SlamSystem::createNewCurrentKeyframe(std::shared_ptr<Frame> newKeyframeCand
 		data[1] = (runningStats.num_prop_created + runningStats.num_prop_merged) / (float)runningStats.num_prop_attempts;
 		data[2] = runningStats.num_prop_removed_colorDiff / (float)runningStats.num_prop_attempts;
 
-		outputWrapper->publishDebugInfo(data);
+        if(outputWrapper != nullptr)
+            outputWrapper->publishDebugInfo(data);
 	}
 
 	currentKeyFrameMutex.lock();
@@ -610,7 +611,7 @@ bool SlamSystem::updateKeyframe()
 
 
 
-	if(outputWrapper != 0 && continuousPCOutput && currentKeyFrame != 0)
+    if(outputWrapper!=nullptr && continuousPCOutput && currentKeyFrame != 0)
 		outputWrapper->publishKeyframe(currentKeyFrame.get());
 
 	return true;
@@ -987,14 +988,15 @@ void SlamSystem::trackFrame(uchar* image, unsigned int frameID, bool blockUntilM
 
 		data[6] = tracker->affineEstimation_a;
 		data[7] = tracker->affineEstimation_b;
-		outputWrapper->publishDebugInfo(data);
+        if(outputWrapper != nullptr)
+            outputWrapper->publishDebugInfo(data);
 	}
 
 	keyFrameGraph->addFrame(trackingNewFrame.get());
 
 
 	//Sim3 lastTrackedCamToWorld = mostCurrentTrackedFrame->getScaledCamToWorld();//  mostCurrentTrackedFrame->TrackingParent->getScaledCamToWorld() * sim3FromSE3(mostCurrentTrackedFrame->thisToParent_SE3TrackingResult, 1.0);
-	if (outputWrapper != 0)
+    if (outputWrapper != nullptr)
 	{
 		outputWrapper->publishTrackedFrame(trackingNewFrame.get());
 	}
@@ -1002,7 +1004,8 @@ void SlamSystem::trackFrame(uchar* image, unsigned int frameID, bool blockUntilM
 
 	// Keyframe selection
 	latestTrackedFrame = trackingNewFrame;
-	if (!my_createNewKeyframe && currentKeyFrame->numMappedOnThisTotal > MIN_NUM_MAPPED)
+    if (my_createNewKeyframe == false
+       && currentKeyFrame->numMappedOnThisTotal > MIN_NUM_MAPPED)
 	{
 		Sophus::Vector3d dist = newRefToFrame_poseUpdate.translation() * currentKeyFrame->meanIdepth;
 		float minVal = fmin(0.2f + keyFrameGraph->keyframesAll.size() * 0.8f / INITIALIZATION_PHASE_COUNT,1.0f);
@@ -1047,13 +1050,21 @@ void SlamSystem::trackFrame(uchar* image, unsigned int frameID, bool blockUntilM
 }
 
 
-void SlamSystem::importFrame(uchar* image, const SE3& wGc, unsigned int frameID, bool blockUntilMapped, double timestamp)
+bool SlamSystem::importFrame(uchar* image, const Eigen::Matrix<double, 4, 4> & wGc, unsigned int frameID, unsigned int frameID_parent, bool blockUntilMapped, double timestamp)
 {
+//    keyFrameGraph->idToKeyFrameMutex.lock();
+    auto got = keyFrameGraph->idToKeyFrame.find(frameID_parent);
+//    keyFrameGraph->idToKeyFrameMutex.unlock();
+    if (got == keyFrameGraph->idToKeyFrame.end()){
+        return false;
+    }
+    std::shared_ptr<Frame> FrameParent = got->second;
+    FramePoseStruct* trackingReferencePose = FrameParent->pose;
+
     // 1. Create new frame
     std::shared_ptr<Frame> trackingNewFrame(new Frame(frameID, width, height, K, timestamp, image));
 
     // 2b. normal tracking
-
     currentKeyFrameMutex.lock();
     bool my_createNewKeyframe = createNewKeyFrame;	// pre-save here, to make decision afterwards.
 
@@ -1065,43 +1076,23 @@ void SlamSystem::importFrame(uchar* image, const SE3& wGc, unsigned int frameID,
         currentKeyFrame->depthHasBeenUpdatedFlag = false;
         trackingReferenceFrameSharedPT = currentKeyFrame;
     }
-
-    FramePoseStruct* trackingReferencePose = trackingReference->keyframe->pose;
     currentKeyFrameMutex.unlock();
 
     // DO TRACKING & Show tracking result.
     if(enablePrintDebugInfo && printThreadingInfo)
         printf("Imported %d on %d\n", trackingNewFrame->id(), trackingReferencePose->frameID);
 
-    Sim3 frameToReference = trackingReferencePose->getCamToWorld().inverse() * sim3FromSE3(wGc,1);
+    Sim3 frameToReference = trackingReferencePose->getCamToWorld().inverse() * Sim3(wGc);
     trackingNewFrame->pose->thisToParent_raw = frameToReference;
-    trackingNewFrame->pose->trackingParent = trackingReference->keyframe->pose;
-    trackingReference->keyframe->numFramesTrackedOnThis++;
+    trackingNewFrame->pose->trackingParent = trackingReferencePose;
+    FrameParent->numFramesTrackedOnThis++;
 
-
-//	struct timeval tv_start, tv_end;
-//	gettimeofday(&tv_start, NULL);
-
-//	SE3 newRefToFrame_poseUpdate = tracker->trackFrame(
-//			trackingReference,
-//			trackingNewFrame.get(),
-//			frameToReference_initialEstimate);
-
-
-//	gettimeofday(&tv_end, NULL);
-//	msTrackFrame = 0.9*msTrackFrame + 0.1*((tv_end.tv_sec-tv_start.tv_sec)*1000.0f + (tv_end.tv_usec-tv_start.tv_usec)/1000.0f);
     nTrackFrame++;
-
-
     keyFrameGraph->addFrame(trackingNewFrame.get());
 
-
     //Sim3 lastTrackedCamToWorld = mostCurrentTrackedFrame->getScaledCamToWorld();//  mostCurrentTrackedFrame->TrackingParent->getScaledCamToWorld() * sim3FromSE3(mostCurrentTrackedFrame->thisToParent_SE3TrackingResult, 1.0);
-    if (outputWrapper != 0)
-    {
+    if (outputWrapper != nullptr)
         outputWrapper->publishTrackedFrame(trackingNewFrame.get());
-    }
-
 
     // Keyframe selection
     latestTrackedFrame = trackingNewFrame;
@@ -1125,10 +1116,8 @@ void SlamSystem::importFrame(uchar* image, const SE3& wGc, unsigned int frameID,
         {
             if(enablePrintDebugInfo && printKeyframeSelectionInfo)
                 printf("SKIPPD %d on %d! dist %.3f + usage %.3f = %.3f > 1\n",trackingNewFrame->id(),trackingNewFrame->getTrackingParent()->id(), dist.dot(dist), tracker->pointUsage, trackableKeyFrameSearch->getRefFrameScore(dist.dot(dist), tracker->pointUsage));
-
         }
     }
-
 
     unmappedTrackedFramesMutex.lock();
     if(unmappedTrackedFrames.size() < 50 || (unmappedTrackedFrames.size() < 100 && trackingNewFrame->getTrackingParent()->numMappedOnThisTotal < 10))
@@ -1147,6 +1136,7 @@ void SlamSystem::importFrame(uchar* image, const SE3& wGc, unsigned int frameID,
         }
         lock.unlock();
     }
+    return true;
 }
 
 float SlamSystem::tryTrackSim3(

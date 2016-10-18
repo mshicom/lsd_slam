@@ -36,7 +36,7 @@ ext_modules = [
                               + proc_incs + eigency.get_includes(include_eigen=False),
               library_dirs = [prefix+'lib', "/opt/ros/indigo/lib/"],
               libraries = ["boost_thread"] + g2o_lib + ros_lib,
-              extra_objects = ["../../lib/liblsdslam_static.a"],
+              extra_objects = ["../../lib/liblsdslam.so"],
               extra_link_args =  proc_libs,
               extra_compile_args = ["-std=c++11"]
 )]

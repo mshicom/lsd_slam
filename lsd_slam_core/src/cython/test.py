@@ -10,7 +10,7 @@ import scipy
 import matplotlib.pyplot as plt
 
 import os
-os.environ["LD_LIBRARY_PATH"] += "/opt/ros/indigo/lib"  # for ros to work
+os.environ["LD_LIBRARY_PATH"] += ";/opt/ros/indigo/lib;"  # for ros to work
 from lsd_slam import *
 
 import sys
@@ -25,19 +25,28 @@ if __name__ == '__main__':
 
     K = np.ascontiguousarray(K,'f')
     frames = [np.ascontiguousarray(f, np.uint8) for f in frames]
+    wGc = [np.ascontiguousarray(relPos(wGc[0], g), np.double) for g in wGc]
 #%%
-#    dmap = pyDepthMap(h, w, K)
-#    f0 = createPyFrame(0, frames[0], K, 1.2)
+    def test_frame():
+        f0 = createPyFrame(0, frames[0], K, 1.2)
+        print f0.image()
+        print f0.getScaledCamToWorld()
 
-#    dmap.initializeRandomly(f0)
-#    im = f0.image()
-#    idep = f0.idepth()
-#    print f0.getScaledCamToWorld()
+    def test_depthMap():
+        f0 = createPyFrame(0, frames[0], K, 1.2)
+        dmap = pyDepthMap(h, w, K)
+        dmap.initializeRandomly(f0)
+        print f0.idepth()
 
-    slam = pySlamSystem(h, w, K, enableSLAM=True)
+    slam = pySlamSystem(h, w, K)
+#    slam.setGradThreshold(10)
+
     for fid, f in enumerate(frames):
-        slam.trackFrame(f, fid, fid*0.3)
+        try:
+#            slam.trackFrame(f, fid, fid*0.3)
+            slam.importFrame(f, wGc[fid], fid, 0, fid*0.3)
+        except:
+            pass
         print slam.getCurrentPoseEstimate()
 #        plt.waitforbuttonpress()
-    print slam.getAllPoses()
     print slam.getAllKeyFrames()

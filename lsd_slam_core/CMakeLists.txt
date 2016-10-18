@@ -8,7 +8,7 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 #  Release        : w/o debug symbols, w/ optimization
 #  RelWithDebInfo : w/ debug symbols, w/ optimization
 #  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
-set(ROS_BUILD_TYPE Release)
+set(ROS_BUILD_TYPE RelWithDebInfo)
 
 rosbuild_init() 
 
@@ -82,12 +82,12 @@ include_directories(
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 # build shared library.
-rosbuild_add_library(lsdslam SHARED ${SOURCE_FILES})
-target_link_libraries(lsdslam ${FABMAP_LIB} g2o_core g2o_stuff csparse cxsparse g2o_solver_csparse g2o_csparse_extension g2o_types_sim3 g2o_types_sba X11)
-rosbuild_link_boost(lsdslam thread)
+#rosbuild_add_library(lsdslam SHARED ${SOURCE_FILES})
+#target_link_libraries(lsdslam ${FABMAP_LIB} g2o_core g2o_stuff csparse cxsparse g2o_solver_csparse g2o_csparse_extension g2o_types_sim3 g2o_types_sba X11)
+#rosbuild_link_boost(lsdslam thread)
 
-rosbuild_add_library(lsdslam_static STATIC ${SOURCE_FILES})
-target_link_libraries(lsdslam_static ${FABMAP_LIB} g2o_core g2o_stuff csparse cxsparse g2o_solver_csparse g2o_csparse_extension g2o_types_sim3 g2o_types_sba X11)
+rosbuild_add_library(lsdslam ${SOURCE_FILES})
+target_link_libraries(lsdslam ${FABMAP_LIB} g2o_core g2o_stuff csparse cxsparse g2o_solver_csparse g2o_csparse_extension g2o_types_sim3 g2o_types_sba X11)
 rosbuild_link_boost(lsdslam thread)
 
 # build live ros node

@@ -56,6 +56,12 @@ cdef class pyFrame(object):
     def getScaledCamToWorld(self):
         return ndarray(self.thisptr.getScaledCamToWorld().matrix())
 
+    def id(self):
+        return self.thisptr.id()
+
+    def timestamp(self):
+        return self.thisptr.timestamp()
+
     def setTrackingParent(self, pyFrame frame):
         self.thisptr.pose.trackingParent = frame.thisptr.pose
 
@@ -87,9 +93,8 @@ cdef class pyDepthMap(object):
 cdef class pySlamSystem(object):
     cdef SlamSystem *thisptr
     cdef bool firstRun
-    def __init__(self, int height, int width, np.ndarray[float, ndim=2, mode="c"] K, bool enableSLAM):
+    def __init__(self, int height, int width, np.ndarray[float, ndim=2, mode="c"] K, bool enableSLAM=True):
         """__init__(self, int height, int width, np.ndarray[float, ndim=2, mode="c"] K, bool enableSLAM)"""
-
         self.thisptr = new SlamSystem(width, height, Map[Matrix3f](K), enableSLAM)
         self.thisptr.setVisualization(NULL) # new ROSOutput3DWrapper(width, height)
         self.firstRun = True
@@ -99,6 +104,7 @@ cdef class pySlamSystem(object):
         displayDepthMap = 0
         debugDisplay = 0
         onSceenInfoDisplay = 0
+        set_debug(1)
 
     def __dealloc__(self):
         del self.thisptr
@@ -106,13 +112,23 @@ cdef class pySlamSystem(object):
     def finalize(self):
         self.thisptr.finalize()
 
-    def trackFrame(self, np.ndarray[np.uint8_t, ndim=2, mode="c"] image, double timestamp, int idx, blockUntilMapped = True):
-        """trackFrame(self, np.ndarray[np.uint8_t, ndim=2, mode="c"] image, double timestamp, int idx)"""
+    def trackFrame(self, np.ndarray[np.uint8_t, ndim=2, mode="c"] image, int frameID, double timestamp, blockUntilMapped = True):
+        """trackFrame(np.ndarray[np.uint8_t, ndim=2, mode="c"] image, int frameID, double timestamp, bool blockUntilMapped=True)"""
         if self.firstRun:
-            self.thisptr.randomInit(<unsigned char*>image.data, timestamp, idx)
+            self.thisptr.randomInit(<unsigned char*>image.data, timestamp, frameID)
             self.firstRun = False
         else:
-            self.thisptr.trackFrame(<unsigned char*>image.data, idx, blockUntilMapped, timestamp)
+            self.thisptr.trackFrame(<unsigned char*>image.data, frameID, blockUntilMapped, timestamp)
+
+    def importFrame(self, np.ndarray[np.uint8_t, ndim=2, mode="c"]image,  np.ndarray[np.double_t, ndim=2, mode="c"] wGc, int frameID, int frameID_parent, double timestamp, bool blockUntilMapped=True):
+        """importFrame(np.ndarrayimage,  np.ndarray wGc, int frameID, int frameID_parent, double timestamp, bool blockUntilMapped=True)"""
+        if self.firstRun:
+            self.thisptr.randomInit(<unsigned char*>image.data, timestamp, frameID)
+            self.firstRun = False
+        else:
+            res = self.thisptr.importFrame(<unsigned char*>image.data, Map[Matrix4d](wGc), frameID, frameID_parent, blockUntilMapped, timestamp)
+            if res==False:
+                raise RuntimeError("importFrame Failed")
 
     def getCurrentKeyframe(self):
         cdef Frame *kf = self.thisptr.getCurrentKeyframe()
@@ -131,6 +147,11 @@ cdef class pySlamSystem(object):
         cdef vector[ pFrame, pFrame_aligned_allocator] vpframes = self.thisptr.getAllKeyFrames()
         frames = [pyFrame.create(f) for f in vpframes]
         return frames
+
+    def setGradThreshold(self, float threshold=5):
+        global minUseGrad
+        minUseGrad = threshold
+
 
 
 

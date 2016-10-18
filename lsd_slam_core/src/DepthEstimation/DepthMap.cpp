@@ -131,7 +131,6 @@ void DepthMap::observeDepthRow(int yMin, int yMax, RunningStats* stats)
 			if(keyFrameMaxGradBuf[idx] < MIN_ABS_GRAD_CREATE || target->blacklisted < MIN_BLACKLIST)
 				continue;
 
-
 			bool success;
 			if(!hasHypothesis)
                 success = observeDepthCreate(x, y, idx, stats); // param: currentDepthMap
@@ -514,10 +513,6 @@ void DepthMap::propagateDepth(Frame* new_keyframe)
 	const float* newKFMaxGrad = new_keyframe->maxGradients(0);
 	const float* newKFImageData = new_keyframe->image(0);
 
-
-
-
-
 	// go through all pixels of OLD image, propagating forwards.
 	for(int y=0;y<height;y++)
 		for(int x=0;x<width;x++)
@@ -547,7 +542,7 @@ void DepthMap::propagateDepth(Frame* new_keyframe)
 			int newIDX = (int)(u_new+0.5f) + ((int)(v_new+0.5f))*width;
 			float destAbsGrad = newKFMaxGrad[newIDX];
 
-			if(trackingWasGood != 0)
+            if(trackingWasGood != nullptr)
 			{
 				if(!trackingWasGood[(x >> SE3TRACKING_MIN_LEVEL) + (width >> SE3TRACKING_MIN_LEVEL)*(y >> SE3TRACKING_MIN_LEVEL)]
 				                    || destAbsGrad < MIN_ABS_GRAD_DECREASE)
@@ -1079,7 +1074,7 @@ void DepthMap::updateKeyframe(std::deque< std::shared_ptr<Frame> > referenceFram
 	gettimeofday(&tv_start_all, NULL);
 
 	oldest_referenceFrame = referenceFrames.front().get();
-	newest_referenceFrame = referenceFrames.back().get();
+    newest_referenceFrame = referenceFrames.back().get();
 	referenceFrameByID.clear();
 	referenceFrameByID_offset = oldest_referenceFrame->id();
 
@@ -1165,7 +1160,7 @@ void DepthMap::updateKeyframe(std::deque< std::shared_ptr<Frame> > referenceFram
 
 
 	activeKeyFrame->numMappedOnThis++;
-	activeKeyFrame->numMappedOnThisTotal++;
+    activeKeyFrame->numMappedOnThisTotal++;
 
 
 	if(plotStereoImages)

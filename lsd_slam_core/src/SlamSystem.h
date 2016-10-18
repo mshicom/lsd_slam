@@ -52,7 +52,7 @@ struct KFConstraintStruct;
 
 
 typedef Eigen::Matrix<float, 7, 7> Matrix7x7;
-
+typedef Eigen::Matrix<float, 4, 4> Matrix4x4;
 class SlamSystem
 {
 friend class IntegrationTest;
@@ -83,7 +83,7 @@ public:
 	// returns camToWord transformation of the tracked frame.
 	// frameID needs to be monotonically increasing.
 	void trackFrame(uchar* image, unsigned int frameID, bool blockUntilMapped, double timestamp);
-    void importFrame(uchar* image, const SE3& wGc, unsigned int frameID, bool blockUntilMapped, double timestamp);
+    bool importFrame(uchar* image, const Eigen::Matrix<double, 4, 4> &wGc, unsigned int frameID, unsigned int frameID_parent, bool blockUntilMapped, double timestamp);
 
 	// finalizes the system, i.e. blocks and does all remaining loop-closures etc.
 	void finalize();
