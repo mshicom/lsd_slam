@@ -39,4 +39,5 @@ if __name__ == '__main__':
         slam.trackFrame(f, fid, fid*0.3)
         print slam.getCurrentPoseEstimate()
         plt.waitforbuttonpress()
+    print slam.getAllPoses()
 

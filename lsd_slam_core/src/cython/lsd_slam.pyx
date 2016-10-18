@@ -66,8 +66,6 @@ cdef class pyFrame(object):
     def setPoseToParent(self, np.ndarray[double, ndim=2, mode="c"] pGr):
         self.thisptr.pose.thisToParent_raw = Sim3(Map[Matrix4d](pGr))
 
-
-
 cdef class pyDepthMap(object):
     cdef DepthMap *thisptr
     def __init__(self, int height, int width, np.ndarray[float, ndim=2, mode="c"] K):
@@ -114,6 +112,10 @@ cdef class pySlamSystem(object):
         cdef SE3 pos = self.thisptr.getCurrentPoseEstimate()
         return ndarray(pos.matrix())
 
+    def getAllPoses(self):
+        cdef vector[pFramePoseStruct, pFramePoseStruct_aligned_allocator] poseStructs = self.thisptr.getAllPoses()
+        pos = [ndarray(s.getCamToWorld().matrix()) for s in poseStructs]
+        return pos
 
 
 

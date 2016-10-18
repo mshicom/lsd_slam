@@ -1,10 +1,11 @@
 from eigency.core cimport *
 from libcpp.deque cimport deque
+from libcpp.vector cimport vector
 from libcpp.memory cimport shared_ptr
 from libcpp cimport bool
 
 cdef extern from "../DepthEstimation/DepthMapPixelHypothesis.h" namespace "lsd_slam":
-    cdef cppclass DepthMapPixelHypothesis:
+    cppclass DepthMapPixelHypothesis:
         bool isValid
         # Flag that blacklists a point to never be used - set if stereo fails repeatedly on this pixel.
         int blacklisted
@@ -19,8 +20,10 @@ cdef extern from "../DepthEstimation/DepthMapPixelHypothesis.h" namespace "lsd_s
         float idepth_smoothed
         float idepth_var_smoothed
 
+
 cdef extern from "../DataStructures/FramePoseStruct.h" namespace "lsd_slam" nogil:
-    cdef cppclass FramePoseStruct:
+
+    cppclass FramePoseStruct:
         FramePoseStruct(Frame* frame)
         FramePoseStruct* trackingParent
         Sim3 thisToParent_raw
@@ -28,8 +31,12 @@ cdef extern from "../DataStructures/FramePoseStruct.h" namespace "lsd_slam" nogi
         Sim3 getCamToWorld()
         int frameID
 
+    cppclass pFramePoseStruct_aligned_allocator "Eigen::aligned_allocator<lsd_slam::FramePoseStruct*>":
+            pass
+ctypedef FramePoseStruct* pFramePoseStruct
+
 cdef extern from "../DataStructures/Frame.h" namespace "lsd_slam":
-    cdef cppclass Frame:
+    cppclass Frame:
         Frame(int id, int width, int height, Map[Matrix3f] &K, double timestamp, const unsigned char* image)
 #        _Frame "Frame"(int id, int width, int height, FlattenedMap[Matrix, float, _3, _3] &K, double timestamp, const float* image)
         DepthMapPixelHypothesis* otherDepthMap
@@ -44,7 +51,7 @@ cdef extern from "../DataStructures/Frame.h" namespace "lsd_slam":
 
 
 cdef extern from "../DepthEstimation/DepthMap.h" namespace "lsd_slam" nogil:
-    cdef cppclass DepthMap:
+    cppclass DepthMap:
         DepthMap(int w, int h, Map[Matrix3f] &K)
         void updateKeyframe(deque[ shared_ptr[Frame] ] referenceFrames)
         void createKeyFrame(Frame* new_keyframe)
@@ -54,10 +61,10 @@ cdef extern from "../DepthEstimation/DepthMap.h" namespace "lsd_slam" nogil:
         void reset()
 
 cdef extern from "../util/SophusUtil.h":
-    cdef cppclass SE3:
+    cppclass SE3:
         Matrix4d matrix()
 
-    cdef cppclass Sim3:
+    cppclass Sim3:
         Sim3(Map[Matrix4d]& T)
         Matrix3d rotationMatrix()  # const Matrix<Scalar,3,3>
         Vector3d translation()
@@ -66,15 +73,16 @@ cdef extern from "../util/SophusUtil.h":
         void setRotationMatrix  (Map[Matrix3d] & R)
         void setScale(const double & scale)
         Sim3 inverse()
-    cdef cppclass SO3:
+    cppclass SO3:
         pass
 
 cdef extern from "../IOWrapper/ROS/ROSOutput3DWrapper.h" namespace "lsd_slam":
-    cdef cppclass ROSOutput3DWrapper:
+    cppclass ROSOutput3DWrapper:
         ROSOutput3DWrapper(int width, int height)
 
 cdef extern from "../SlamSystem.h" namespace "lsd_slam" nogil:
-    cdef cppclass SlamSystem:
+
+    cppclass SlamSystem:
         SlamSystem(int w, int h, Map[Matrix3f] K, bool enableSLAM)
         void randomInit(unsigned char* image, double timeStamp, int id)
         void trackFrame(unsigned char* image, unsigned int frameID, bool blockUntilMapped, double timestamp)
@@ -87,10 +95,11 @@ cdef extern from "../SlamSystem.h" namespace "lsd_slam" nogil:
         void optimizeGraph()
         bool optimizationIteration(int itsPerTry, float minChange)
         void setVisualization(ROSOutput3DWrapper* outputWrapper)
-        void publishKeyframeGraph();
+        void publishKeyframeGraph()
+        vector[pFramePoseStruct, pFramePoseStruct_aligned_allocator] getAllPoses()
 
 cdef extern from "../util/settings.h" namespace "lsd_slam":
-    cdef int debugDisplay
-    cdef bool displayDepthMap
-    cdef bool onSceenInfoDisplay
+    int debugDisplay
+    bool displayDepthMap
+    bool onSceenInfoDisplay
 
