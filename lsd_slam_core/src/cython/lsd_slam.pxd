@@ -48,7 +48,16 @@ cdef extern from "../DataStructures/Frame.h" namespace "lsd_slam":
         Sim3 getScaledCamToWorld()
         int width()
         int height()
+    cppclass pFrame_aligned_allocator "Eigen::aligned_allocator<lsd_slam::Frame*>":
+        pass
+ctypedef Frame* pFrame
 
+cdef extern from "../GlobalMapping/KeyFrameGraph.h" namespace "lsd_slam" nogil:
+
+    cppclass KeyFrameGraph:
+        void addKeyFrame(Frame* frame)
+        void addFrame(Frame* frame)
+        vector[ pFrame, pFrame_aligned_allocator] keyframesAll
 
 cdef extern from "../DepthEstimation/DepthMap.h" namespace "lsd_slam" nogil:
     cppclass DepthMap:
@@ -97,6 +106,7 @@ cdef extern from "../SlamSystem.h" namespace "lsd_slam" nogil:
         void setVisualization(ROSOutput3DWrapper* outputWrapper)
         void publishKeyframeGraph()
         vector[pFramePoseStruct, pFramePoseStruct_aligned_allocator] getAllPoses()
+        vector[ pFrame, pFrame_aligned_allocator] getAllKeyFrames()
 
 cdef extern from "../util/settings.h" namespace "lsd_slam":
     int debugDisplay

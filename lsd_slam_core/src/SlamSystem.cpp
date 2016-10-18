@@ -1801,3 +1801,11 @@ std::vector<FramePoseStruct*, Eigen::aligned_allocator<FramePoseStruct*> > SlamS
 {
 	return keyFrameGraph->allFramePoses;
 }
+
+std::vector<Frame*, Eigen::aligned_allocator<Frame*> > SlamSystem::getAllKeyFrames()
+{
+    keyFrameGraph->allFramePosesMutex.lock_shared();
+    auto keyframes = keyFrameGraph->keyframesAll;
+    keyFrameGraph->allFramePosesMutex.unlock_shared();
+    return keyframes;
+}

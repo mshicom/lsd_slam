@@ -110,6 +110,7 @@ public:
 	void publishKeyframeGraph();
 	
 	std::vector<FramePoseStruct*, Eigen::aligned_allocator<lsd_slam::FramePoseStruct*> > getAllPoses();
+    std::vector<Frame*, Eigen::aligned_allocator<lsd_slam::Frame*> > getAllKeyFrames();
 
 
 

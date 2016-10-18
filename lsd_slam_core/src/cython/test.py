@@ -8,9 +8,10 @@ Created on Mon Oct 17 18:13:30 2016
 import numpy as np
 import scipy
 import matplotlib.pyplot as plt
+
+import os
+os.environ["LD_LIBRARY_PATH"] += "/opt/ros/indigo/lib"  # for ros to work
 from lsd_slam import *
-
-
 
 import sys
 sys.path.append("/home/kaihong/workspace/gltes")
@@ -24,20 +25,19 @@ if __name__ == '__main__':
 
     K = np.ascontiguousarray(K,'f')
     frames = [np.ascontiguousarray(f, np.uint8) for f in frames]
-
+#%%
 #    dmap = pyDepthMap(h, w, K)
-#    f0 = pyFrame(0, frames[0], K, 1.2)
+#    f0 = createPyFrame(0, frames[0], K, 1.2)
 
 #    dmap.initializeRandomly(f0)
 #    im = f0.image()
 #    idep = f0.idepth()
 #    print f0.getScaledCamToWorld()
 
-
-    slam = pySlamSystem(h, w, K, 1)
+    slam = pySlamSystem(h, w, K, enableSLAM=True)
     for fid, f in enumerate(frames):
         slam.trackFrame(f, fid, fid*0.3)
         print slam.getCurrentPoseEstimate()
-        plt.waitforbuttonpress()
+#        plt.waitforbuttonpress()
     print slam.getAllPoses()
-
+    print slam.getAllKeyFrames()
