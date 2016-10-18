@@ -23,17 +23,19 @@ opencv_incs = [prefix+"include"]
 
 import eigency
 
+g2o_lib = "g2o_core g2o_stuff csparse cxsparse g2o_solver_csparse g2o_csparse_extension g2o_types_sim3 g2o_types_sba X11".split()
+ros_lib = ["roscpp"]
 ext_modules = [
     Extension("lsd_slam",
               sources = ["lsd_slam.pyx"],
               language='c++',
-              include_dirs = [ "../",
-                               "../../thirdparty/Sophus/",
+              include_dirs = ["../",
+                              "../../thirdparty/Sophus/",
                               "/usr/include/eigen3/",
                               numpy.get_include(),]
                               + proc_incs + eigency.get_includes(include_eigen=False),
-              library_dirs = [prefix+'lib'],
-              libraries = ["boost_thread"],
+              library_dirs = [prefix+'lib', "/opt/ros/indigo/lib/"],
+              libraries = ["boost_thread"] + g2o_lib + ros_lib,
               extra_objects = ["../../lib/liblsdslam_static.a"],
               extra_link_args =  proc_libs,
               extra_compile_args = ["-std=c++11"]

@@ -250,9 +250,9 @@ void Frame::setDepthFromGroundTruth(const float* depth, float cov_scale)
 
 
 	boost::unique_lock<boost::mutex> lock2(buildMutex);
-	if(data.idepth[0] == 0)
+    if(data.idepth[0] == nullptr)
 		data.idepth[0] = FrameMemory::getInstance().getFloatBuffer(data.width[0]*data.height[0]);
-	if(data.idepthVar[0] == 0)
+    if(data.idepthVar[0] == nullptr)
 		data.idepthVar[0] = FrameMemory::getInstance().getFloatBuffer(data.width[0]*data.height[0]);
 
 	float* pyrIDepth = data.idepth[0];
